@@ -26,7 +26,7 @@ Objectives:
 Licensing Information:
     -You are free to use or extend these projects for educational purposes.
 """
-
+from collections import defaultdict
 
 import numpy as np
 import pygame
@@ -52,6 +52,8 @@ DEFAULT_REWARD = (-1)
 PIGS = 8
 QUEENS = 2
 ROCKS = 8
+
+
 #######################################################
 #                DONT CHANGE THIS PART                #
 #######################################################
@@ -250,32 +252,56 @@ class AngryBirds:
         agent_row, agent_col = self.__agent_pos
         screen.blit(self.__agent_image, (agent_col * self.__tile_size, agent_row * self.__tile_size))
 
+    # def reward_function(self):
+    #     # implement this function
+    #
+    #     """it returns a 8x8 matrix
+    #     [[-1, -1, -1, -1, -1, -1, -1, -1],
+    #     [-1, -1, -1, -1, -1, -1, -1, -1],
+    #     [-1, -400, -1, -1, -1, 180, -1, -1],
+    #     ...'"""
+    #
+    #     reward_map = [[0 for _ in range(self.__grid_size)] for _ in range(self.__grid_size)]
+    #     return reward_map
     def reward_function(self):
-        # implement this function
+        """
+        Generates a reward map based on the environment's grid.
+        """
+        # Initialize a 8x8 reward map with the default reward
+        reward_map = [[DEFAULT_REWARD for _ in range(self.__grid_size)] for _ in range(self.__grid_size)]
 
-        """it returns a 8x8 matrix
-        [[-1, -1, -1, -1, -1, -1, -1, -1],
-        [-1, -1, -1, -1, -1, -1, -1, -1],
-        [-1, -400, -1, -1, -1, 180, -1, -1],
-        ...'"""
+        # Iterate over each cell in the grid to assign rewards
+        for row in range(self.__grid_size):
+            for col in range(self.__grid_size):
+                cell = self.grid[row][col]  # Get the type of the current cell
 
-        reward_map = [[0 for _ in range(self.__grid_size)] for _ in range(self.__grid_size)]
+                if cell == 'G':  # Goal
+                    reward_map[row][col] = 20000
+                elif cell == 'P':  # Pig
+                    reward_map[row][col] = 2000
+                elif cell == 'Q':  # Queen pig
+                    reward_map[row][col] = -2000
+                elif cell == 'T':  # Normal tile
+                    reward_map[row][col] = -100
+                elif cell == 'R':  # Rock (impassable, leave default reward)
+                    continue
+
         return reward_map
 
     @classmethod
     def __calculate_transition_model(cls, grid_size, actions_prob, reward_map):
         actions = {
             0: (-1, 0),  # Up
-            1: (1, 0),   # Down
+            1: (1, 0),  # Down
             2: (0, -1),  # Left
-            3: (0, 1)    # Right
+            3: (0, 1)  # Right
         }
 
         neighbors = {
             0: [2, 3],  # Up -> Left and Right
             1: [2, 3],  # Down -> Left and Right
             2: [0, 1],  # Left -> Up and Down
-            3: [0, 1]   # Right -> Up and Down
+            3: [0, 1]  # Right -> Up and Down
         }
 
         transition_table = {}
@@ -353,3 +379,48 @@ class AngryBirds:
                         'intended': intended_prob,
                         'neighbor': neighbor_prob}
         return probability_dict
+
+
+def value_iteration(grid, transition_table, discount_factor=0.9, theta=1e-4):
+    """
+    Solves the MDP using Value Iteration algorithm.
+    Args:
+        env: Environment object with env.grid and env.transition_table.
+        discount_factor: Discount factor for future rewards (gamma).
+        theta: Threshold for stopping criteria.
+    Returns:
+        A policy dict mapping states to actions.
+    """
+
+    # Initialize the value function
+    V = defaultdict(float)
+    policy = {}
+
+    while True:
+        delta = 0  # To measure convergence
+        for x in range(8):
+            for y in range(8):
+                state = (x, y)
+                if grid[x][y] == "R":  # Skip rocks
+                    continue
+
+                # Calculate the value of each action
+                action_values = []
+                for action in range(4):  # 0=Up, 1=Down, 2=Left, 3=Right
+                    value = 0
+                    for prob, next_state, reward in transition_table[state][action]:
+                        value += prob * (reward + discount_factor * V[next_state])
+                    action_values.append(value)
+
+                # Update the value function and policy
+                best_action_value = max(action_values) if action_values else 0
+                delta = max(delta, abs(V[state] - best_action_value))
+                V[state] = best_action_value
+                if action_values:
+                    policy[state] = np.argmax(action_values)
+
+        # Check for convergence
+        if delta < theta:
+            break
+
+    return policy

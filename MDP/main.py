@@ -2,11 +2,12 @@ import pygame
 from environment import PygameInit, AngryBirds, value_iteration
 
 if __name__ == "__main__":
-    FPS = 64
+    FPS = 16
     env = AngryBirds()
     screen, clock = PygameInit.initialization()
     state = env.reset()
     sum_rewards = 0
+    sum_episodes_reward = 0
 
     # Compute the optimal policy using combined value iteration
     policy = value_iteration(env.grid, env.transition_table)
@@ -31,12 +32,15 @@ if __name__ == "__main__":
         print(" ".join(row))
 
     # Run the game simulation
-    for _ in range(5):
+    for episode in range(5):
+        print(f"Starting Episode {episode + 1}")
         running = True
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+                    pygame.quit()
+                    exit()
 
             env.render(screen)
 
@@ -48,9 +52,13 @@ if __name__ == "__main__":
             sum_rewards += reward_episode
 
             if done:
-                print(f"Episode finished with reward: {sum_rewards}")
+                print(f"Episode finished with total reward: {sum_rewards}")
+                sum_episodes_reward = sum_episodes_reward + sum_rewards
+                if (episode == 4):
+                    print(f"Avg rewards: {sum_episodes_reward / 5}")
                 sum_rewards = 0
-                state = env.reset()
+                state = env.reset()  # Reset environment for the next episode
+                running = False  # Stop the current episode loop
             else:
                 state = next_state  # Update state to the next state
 

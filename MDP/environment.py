@@ -63,7 +63,7 @@ class PygameInit:
 
     @classmethod
     def initialization(cls):
-        grid_size = 8
+        grid_size = 64
         tile_size = 100
 
         pygame.init()
@@ -265,26 +265,63 @@ class AngryBirds:
     #     return reward_map
     def reward_function(self):
         """
-        Generates a reward map based on the environment's grid.
+        Generates a reward map based on the environment's grid, prioritizing pigs closer to the goal.
         """
-        # Initialize a 8x8 reward map with the default reward
+        # Initialize a reward map with default rewards
         reward_map = [[DEFAULT_REWARD for _ in range(self.__grid_size)] for _ in range(self.__grid_size)]
 
-        # Iterate over each cell in the grid to assign rewards
+        # Coordinates of the goal
+        goal_pos = (self.__grid_size - 1, self.__grid_size - 1)
+
+        # Iterate over each cell in the grid
         for row in range(self.__grid_size):
             for col in range(self.__grid_size):
-                cell = self.grid[row][col]  # Get the type of the current cell
+                cell = self.grid[row][col]
 
                 if cell == 'G':  # Goal
-                    reward_map[row][col] = 20000
-                elif cell == 'P':  # Pig
-                    reward_map[row][col] = 2000
+                    reward_map[row][col] = 1000
+                elif cell == 'P':
+                    distance_to_goal = abs(row - goal_pos[0]) + abs(col - goal_pos[1])
+
+                    # Adjust reward scaling parameters
+                    base_reward = 150  # Minimum reward for far pigs
+                    alpha = 650  # Determines the range (800 - 150 = 650)
+                    beta = self.__grid_size / 2  # Decay factor (can be tuned)
+
+                    # Compute scaled reward
+                    scaled_reward = base_reward + alpha * np.exp(-distance_to_goal / beta)
+                    print("P", scaled_reward)
+
+                    # # Ensure reward does not exceed goal reward
+                    # if scaled_reward >= GOAL_REWARD:
+                    #     scaled_reward = GOAL_REWARD - 1
+
+                    reward_map[row][col] = scaled_reward
                 elif cell == 'Q':  # Queen pig
-                    reward_map[row][col] = -2000
-                elif cell == 'T':  # Normal tile
-                    reward_map[row][col] = -100
-                elif cell == 'R':  # Rock (impassable, leave default reward)
-                    continue
+                    reward_map[row][col] = -1000
+                elif cell == 'T':
+                    distance_to_goal = abs(row - goal_pos[0]) + abs(col - goal_pos[1])
+
+                    # Adjusted parameters
+                    base_penalty = -10  # Default penalty for far states
+                    alpha = 10  # Spread multiplier for reducing the penalty
+                    beta = 50  # Maximum impact of proximity
+                    n = 3  # Exponent for sharper drop-off with distance
+
+                    # Compute scaled penalty based on distance
+                    scaled_reward = base_penalty + alpha * (beta / (1 + distance_to_goal ** n))
+
+                    # Clamp rewards to stay in the range [-20, -2]
+                    scaled_reward = max(min(scaled_reward, -2), base_penalty)
+
+                    # Assign reward
+                    reward_map[row][col] = scaled_reward
+
+                    # Debugging output
+                    print(f"T Cell at ({row}, {col}): Distance = {distance_to_goal}, Reward = {scaled_reward}")
+
+                elif cell == 'R':  # Normal tile
+                    reward_map[row][col] = -10
 
         return reward_map
 

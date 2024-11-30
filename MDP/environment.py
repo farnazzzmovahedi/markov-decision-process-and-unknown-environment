@@ -262,6 +262,7 @@ class AngryBirds:
 
         # Coordinates of the goal
         goal_pos = (self.__grid_size - 1, self.__grid_size - 1)
+        agent_pos = self.__agent_pos
 
         # Iterate over each cell in the grid
         for row in range(self.__grid_size):
@@ -269,18 +270,27 @@ class AngryBirds:
                 cell = self.grid[row][col]
 
                 if cell == 'G':  # Goal
-                    reward_map[row][col] = 2000 if phase == 'goal' else 200
+                    reward_map[row][col] = 2000 if phase == 'goal' else 400
                 elif cell == 'P':
                     distance_to_goal = abs(row - goal_pos[0]) + abs(col - goal_pos[1])
+                    distance_to_agent = abs(row - agent_pos[0]) + abs(col - agent_pos[1])
+                    # print("dis P to agent", distance_to_agent)
 
                     # Adjust reward scaling parameters
                     base_reward = 150  # Minimum reward for far pigs
                     alpha = 650  # Determines the range (800 - 150 = 650)
                     beta = self.__grid_size / 2  # Decay factor (can be tuned)
 
-                    # Compute scaled reward
-                    scaled_reward = base_reward + alpha * np.exp(-distance_to_goal / beta)
+
                     # print("P", scaled_reward)
+
+                    # if distance_to_agent < 3:
+                    #     # Compute scaled reward
+                    #     scaled_reward = base_reward + alpha * np.exp(-distance_to_agent / beta)
+                    #     reward_map[row][col] = scaled_reward
+                    # else:
+                    scaled_reward = base_reward + alpha * np.exp(-distance_to_goal / beta)
+                    reward_map[row][col] = scaled_reward if phase == 'pigs' else 50
 
                     # # Ensure reward does not exceed goal reward
                     # if scaled_reward >= GOAL_REWARD:
@@ -410,7 +420,7 @@ class AngryBirds:
         return probability_dict
 
 
-def value_iteration(env, transition_table, discount_factor=0.9, theta=1e-4, phase='pigs'):
+def value_iteration(env, transition_table, discount_factor=0.9, theta=1e-7, phase='pigs'):
     V = defaultdict(float)
     policy = {}
 
@@ -441,4 +451,4 @@ def value_iteration(env, transition_table, discount_factor=0.9, theta=1e-4, phas
         if delta < theta:
             break
 
-    return policy
+    return policy, V

@@ -14,8 +14,26 @@ if __name__ == "__main__":
     # policy = value_iteration(env.grid, env.transition_table)
 
     # Compute the optimal policy for both phases
-    policy_pigs = value_iteration(env, env.transition_table, phase='pigs')
-    policy_goal = value_iteration(env, env.transition_table, phase='goal')
+    policy_pigs, V_pigs = value_iteration(env, env.transition_table, phase='pigs')
+    policy_goal, V_goal = value_iteration(env, env.transition_table, phase='goal')
+
+    print("State Values (V_pigs):")
+    for x in range(8):
+        row = []
+        for y in range(8):
+            state = (x, y)
+            value = V_pigs.get(state, 0)  # Default to 0 if the state is not in V
+            row.append(f"{value:8.2f}")  # Format value with 2 decimal places
+        print(" ".join(row))
+
+    print("State Values (V_goal):")
+    for x in range(8):
+        row = []
+        for y in range(8):
+            state = (x, y)
+            value = V_pigs.get(state, 0)  # Default to 0 if the state is not in V
+            row.append(f"{value:8.2f}")  # Format value with 2 decimal places
+        print(" ".join(row))
 
     # Print the policy
     action_labels = {

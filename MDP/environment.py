@@ -86,6 +86,7 @@ class AngryBirds:
         self.__base_grid = self.__generate_grid()
         self.__agent_pos = (0, 0)
         self.pigs_eaten = 0
+        self.queen_pigs_eaten = 0
 
         self.grid = copy.deepcopy(self.__base_grid)
         self.reward = 0
@@ -120,6 +121,14 @@ class AngryBirds:
         self.__rock_with_background = pygame.Surface((self.__tile_size, self.__tile_size))
         self.__rock_with_background.fill((135, 206, 235))
         self.__rock_with_background.blit(self.__rock_image, (0, 0))
+
+    def get_agent_position(self):
+        """Returns the current position of the agent."""
+        return self.__agent_pos
+
+    def get_grid_size(self):
+        """Returns the current position of the agent."""
+        return self.__grid_size
 
     def __generate_grid(self):
 
@@ -205,6 +214,7 @@ class AngryBirds:
         if current_tile == 'Q':
             reward = QUEEN_REWARD
             self.grid[self.__agent_pos[0]][self.__agent_pos[1]] = 'T'
+            self.queen_pigs_eaten += 1
 
         elif current_tile == 'P':
             reward = GOOD_PIG_REWARD
@@ -255,74 +265,45 @@ class AngryBirds:
 
     def reward_function(self, phase='pigs'):
         """
-        Generates a reward map based on the environment's grid, prioritizing pigs closer to the goal.
+        Generates a reward map based on the environment's grid, dynamically prioritizing the nearest pig.
         """
-        # Initialize a reward map with default rewards
         reward_map = [[DEFAULT_REWARD for _ in range(self.__grid_size)] for _ in range(self.__grid_size)]
 
-        # Coordinates of the goal
-        goal_pos = (self.__grid_size - 1, self.__grid_size - 1)
+        # Get agent position
         agent_pos = self.__agent_pos
 
-        # Iterate over each cell in the grid
+        # Track all pig positions
+        pigs_positions = [(row, col) for row in range(self.__grid_size) for col in range(self.__grid_size) if
+                          self.grid[row][col] == 'P']
+
+        # Find the nearest pig to the agent
+        if pigs_positions:
+            nearest_pig = min(pigs_positions, key=lambda pig: abs(pig[0] - agent_pos[0]) + abs(pig[1] - agent_pos[1]))
+        else:
+            nearest_pig = None
+
+        # Assign rewards to grid cells
         for row in range(self.__grid_size):
             for col in range(self.__grid_size):
                 cell = self.grid[row][col]
 
                 if cell == 'G':  # Goal
-                    reward_map[row][col] = 2000 if phase == 'goal' else 400
+                    reward_map[row][col] = 20000 if phase == 'goal' else 10
                 elif cell == 'P':
-                    distance_to_goal = abs(row - goal_pos[0]) + abs(col - goal_pos[1])
-                    distance_to_agent = abs(row - agent_pos[0]) + abs(col - agent_pos[1])
-                    # print("dis P to agent", distance_to_agent)
-
-                    # Adjust reward scaling parameters
-                    base_reward = 150  # Minimum reward for far pigs
-                    alpha = 650  # Determines the range (800 - 150 = 650)
-                    beta = self.__grid_size / 2  # Decay factor (can be tuned)
-
-
-                    # print("P", scaled_reward)
-
-                    # if distance_to_agent < 3:
-                    #     # Compute scaled reward
-                    #     scaled_reward = base_reward + alpha * np.exp(-distance_to_agent / beta)
-                    #     reward_map[row][col] = scaled_reward
-                    # else:
-                    scaled_reward = base_reward + alpha * np.exp(-distance_to_goal / beta)
-                    reward_map[row][col] = scaled_reward if phase == 'pigs' else 50
-
-                    # # Ensure reward does not exceed goal reward
-                    # if scaled_reward >= GOAL_REWARD:
-                    #     scaled_reward = GOAL_REWARD - 1
-
-                    print("P", scaled_reward)
-
-                    reward_map[row][col] = scaled_reward if phase == 'pigs' else 50
+                    if phase == 'pigs':
+                        if (row, col) == nearest_pig:
+                            # print("nearest", nearest_pig)
+                            # print("cell", cell)
+                            reward_map[row][col] = 20000  # High reward for the nearest pig
+                        else:
+                            reward_map[row][col] = 10  # Smaller reward for other pigs
+                    else:
+                        reward_map[row][col] = 10
                 elif cell == 'Q':  # Queen pig
                     reward_map[row][col] = -2000
                 elif cell == 'T':
-                    distance_to_goal = abs(row - goal_pos[0]) + abs(col - goal_pos[1])
-
-                    # Adjusted parameters
-                    base_penalty = -10  # Default penalty for far states
-                    alpha = 10  # Spread multiplier for reducing the penalty
-                    beta = 50  # Maximum impact of proximity
-                    n = 3  # Exponent for sharper drop-off with distance
-
-                    # Compute scaled penalty based on distance
-                    scaled_reward = base_penalty + alpha * (beta / (1 + distance_to_goal ** n))
-
-                    # Clamp rewards to stay in the range [-20, -2]
-                    scaled_reward = max(min(scaled_reward, -2), base_penalty)
-
-                    # Assign reward
-                    reward_map[row][col] = scaled_reward
-
-                    # Debugging output
-                    # print(f"T Cell at ({row}, {col}): Distance = {distance_to_goal}, Reward = {scaled_reward}")
-
-                elif cell == 'R':  # Normal tile
+                    reward_map[row][col] = -10
+                elif cell == 'R':  # Rock
                     reward_map[row][col] = -10
 
         return reward_map
@@ -421,34 +402,102 @@ class AngryBirds:
 
 
 def value_iteration(env, transition_table, discount_factor=0.9, theta=1e-7, phase='pigs'):
-    V = defaultdict(float)
-    policy = {}
-
-    # Initialize rewards based on phase
-    rewards = env.reward_function(phase)
+    """
+    Perform value iteration to compute the optimal policy and value function.
+    """
+    V = defaultdict(float)  # Value function initialized to 0
+    policy = {}  # Policy to store optimal actions
+    rewards = env.reward_function(phase)  # 2D list of rewards
 
     while True:
         delta = 0
+
         for x in range(8):
             for y in range(8):
                 state = (x, y)
-                if env.grid[x][y] == "R":
+                if env.grid[x][y] == "R":  # Skip states with rocks
                     continue
 
                 action_values = []
-                for action in range(4):
+                for action in range(4):  # Up, Down, Left, Right
                     value = 0
-                    for prob, next_state, reward in transition_table[state][action]:
-                        value += prob * (rewards[next_state[0]][next_state[1]] + discount_factor * V[next_state])
+                    for prob, next_state, _ in transition_table[state][action]:
+                        next_x, next_y = next_state
+                        reward = rewards[next_x][next_y]  # Access reward using 2D indices
+                        value += prob * (reward + discount_factor * V[next_state])
                     action_values.append(value)
 
+                # Update value and policy
                 best_action_value = max(action_values) if action_values else 0
                 delta = max(delta, abs(V[state] - best_action_value))
                 V[state] = best_action_value
                 if action_values:
                     policy[state] = np.argmax(action_values)
 
+        # Stop if the values converge
         if delta < theta:
             break
 
-    return policy, V
+    # After value iteration, correct the policy to avoid invalid actions and pick the best valid actions
+    corrected_policy = correct_policy(policy, V, env, discount_factor)
+
+    return corrected_policy, V
+
+
+def correct_policy(policy, V, env, discount_factor):
+    """
+    Correct the policy to avoid invalid actions and choose the best valid action.
+    """
+    corrected_policy = policy.copy()  # Copy the policy to make adjustments
+
+    for state, action in policy.items():
+        row, col = state
+
+        # Define valid actions
+        valid_actions = []
+
+        # Check if the agent is in the leftmost column (col == 0)
+        if col == 0:
+            # Cannot go left (action == 2), so valid actions are up (0) and down (1)
+            valid_actions = [0, 1]
+        # Check if the agent is in the rightmost column (col == 7)
+        elif col == 7:
+            # Cannot go right (action == 3), so valid actions are up (0) and down (1)
+            valid_actions = [0, 1]
+        # Check if the agent is in the topmost row (row == 0)
+        elif row == 0:
+            # Cannot go up (action == 0), so valid actions are down (1), left (2), and right (3)
+            valid_actions = [1, 2, 3]
+        # Check if the agent is in the bottommost row (row == 7)
+        elif row == 7:
+            # Cannot go down (action == 1), so valid actions are up (0), left (2), and right (3)
+            valid_actions = [0, 2, 3]
+        else:
+            # If not on the edges, all four actions are valid
+            valid_actions = [0, 1, 2, 3]
+
+        # Evaluate the best valid action based on the value function V
+        best_action = None
+        best_value = float('-inf')  # Start with a very low value to find the max
+
+        for valid_action in valid_actions:
+            # Calculate the expected value for each valid action
+            expected_value = 0
+            for prob, next_state, _ in env.transition_table[state][valid_action]:
+                next_x, next_y = next_state
+                reward = env.reward_function()[next_x][next_y]  # Access reward using 2D indices
+                expected_value += prob * (reward + discount_factor * V[next_state])
+
+            # Select the action with the highest expected value
+            if expected_value > best_value:
+                best_value = expected_value
+                best_action = valid_action
+
+        # If the best valid action is found, update the policy
+        corrected_policy[state] = best_action
+
+    return corrected_policy
+
+
+
+

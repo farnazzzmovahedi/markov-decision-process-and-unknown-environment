@@ -5,98 +5,86 @@ if __name__ == "__main__":
 
     FPS = 64
     env = AngryBirds()
-    screen, clock = PygameInit.initialization()
+    # screen, clock = PygameInit.initialization()  # Initialize Pygame (commented out)
     state = env.reset()
     sum_rewards = 0
     sum_episodes_reward = 0
+    temp = 0
+    agent_poos = env.get_agent_position()
+    policy = None
 
-    # # Compute the optimal policy using combined value iteration
-    # policy = value_iteration(env.grid, env.transition_table)
+    # Initialize variables to track the nearest pig
+    nearest_pig = None
 
-    # Compute the optimal policy for both phases
-    policy_pigs, V_pigs = value_iteration(env, env.transition_table, phase='pigs')
-    policy_goal, V_goal = value_iteration(env, env.transition_table, phase='goal')
-
-    print("State Values (V_pigs):")
-    for x in range(8):
-        row = []
-        for y in range(8):
-            state = (x, y)
-            value = V_pigs.get(state, 0)  # Default to 0 if the state is not in V
-            row.append(f"{value:8.2f}")  # Format value with 2 decimal places
-        print(" ".join(row))
-
-    print("State Values (V_goal):")
-    for x in range(8):
-        row = []
-        for y in range(8):
-            state = (x, y)
-            value = V_pigs.get(state, 0)  # Default to 0 if the state is not in V
-            row.append(f"{value:8.2f}")  # Format value with 2 decimal places
-        print(" ".join(row))
-
-    # Print the policy
-    action_labels = {
-        0: "↑",  # Up
-        1: "↓",  # Down
-        2: "←",  # Left
-        3: "→"  # Right
-    }
-
-    print("\nOptimal Policy Pigs:")
-    for x in range(8):
-        row = []
-        for y in range(8):
-            if env.grid[x][y] == "R":
-                row.append("R")  # Rock
-            else:
-                action = policy_pigs[x, y]
-                row.append(action_labels[action] if action != -1 else " ")
-        print(" ".join(row))
-
-    # Print the policy
-    action_labels = {
-        0: "↑",  # Up
-        1: "↓",  # Down
-        2: "←",  # Left
-        3: "→"  # Right
-    }
-
-    print("\nOptimal Policy Goal:")
-    for x in range(8):
-        row = []
-        for y in range(8):
-            if env.grid[x][y] == "R":
-                row.append("R")  # Rock
-            else:
-                action = policy_goal[x, y]
-                row.append(action_labels[action] if action != -1 else " ")
+    # print the grid
+    for row in env.grid:
         print(" ".join(row))
 
     for episode in range(5):
         running = True
         while running:
 
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                    pygame.quit()
-                    exit()
+            # Comment out Pygame event handling and rendering
+            # for event in pygame.event.get():
+            #     if event.type == pygame.QUIT:
+            #         running = False
+            #         pygame.quit()
+            #         exit()
 
-            env.render(screen)
+            # env.render(screen)  # Comment out rendering
 
+            if policy is None:
+                policy, V = value_iteration(env, env.transition_table, phase='pigs')
 
-            # Determine which policy to use
-            if env.pigs_eaten < 4:
-                policy = policy_pigs  # Follow pig-hunting policy
-            else:
-                policy = policy_goal  # Switch to goal-reaching policy
+            while env.pigs_eaten < 7:
+                if env.pigs_eaten != temp:
+                    policy, V = value_iteration(env, env.transition_table, phase='pigs')  # Recompute policy for pigs phase
+
+                    # # Uncomment if you want to see the state values for debugging
+                    # print("State Values (V_pigs):")
+                    # for x in range(8):
+                    #     row = []
+                    #     for y in range(8):
+                    #         state = (x, y)
+                    #         value = V.get(state, 0)  # Default to 0 if the state is not in V
+                    #         row.append(f"{value:8.2f}")  # Format value with 2 decimal places
+                    #     print(" ".join(row))
+
+                    temp = env.pigs_eaten
+
+                # Extract action from policy
+                row, col = state  # Unpack the current state
+                action = policy.get((row, col), 0)  # Access policy, default to 0 (Up) if state is not in policy
+                next_state, probability, reward_episode, done = env.step(action)
+                sum_rewards += reward_episode
+
+                if done:
+                    print(f"Episode finished with total reward: {sum_rewards}")
+                    sum_episodes_reward = sum_episodes_reward + sum_rewards
+                    if episode == 4:
+                        print(f"Avg rewards: {sum_episodes_reward / 5}")
+                    sum_rewards = 0
+                    state = env.reset()  # Reset environment for the next episode
+                    running = False  # Stop the current episode loop
+                    policy = None
+                else:
+                    state = next_state
+
+            policy, V = value_iteration(env, env.transition_table, phase='goal')
+
+            # print("State Values (V_goal):")
+            # for x in range(8):
+            #     row = []
+            #     for y in range(8):
+            #         state = (x, y)
+            #         value = V.get(state, 0)  # Default to 0 if the state is not in V
+            #         row.append(f"{value:8.2f}")  # Format value with 2 decimal places
+            #     print(" ".join(row))
 
             # Extract action from policy
             row, col = state  # Unpack the current state
-            action = policy[row, col]  # Access policy using indices
+            action = policy.get((row, col), 0)  # Access policy, default to 0 (Up) if state is not in policy
             next_state, probability, reward_episode, done = env.step(action)
-            # print(reward_episode)
             sum_rewards += reward_episode
 
             if done:
@@ -107,10 +95,11 @@ if __name__ == "__main__":
                 sum_rewards = 0
                 state = env.reset()  # Reset environment for the next episode
                 running = False  # Stop the current episode loop
+                policy = None
             else:
                 state = next_state  # Update state to the next state
 
-            pygame.display.flip()
-            clock.tick(FPS)
+            # pygame.display.flip()  # Comment out Pygame display update
+            # clock.tick(FPS)  # Comment out Pygame clock tick
 
-    pygame.quit()
+    # pygame.quit()  # Comment out Pygame quit

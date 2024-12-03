@@ -171,7 +171,7 @@ class AngryBirds:
         self.grid = copy.deepcopy(self.__base_grid)
         self.__agent_pos = (0, 0)
         self.reward = 0
-        # self.pigs_eaten = 0
+        self.pigs_eaten = 0
         self.done = False
         return self.__agent_pos
 
@@ -438,8 +438,12 @@ def value_iteration(env, transition_table, discount_factor=0.9, theta=1e-7, phas
         if delta < theta:
             break
 
+    # print("policy phase:", phase)
+    # print_policy(policy, grid=env.grid)
     # After value iteration, correct the policy to avoid invalid actions and pick the best valid actions
     corrected_policy = correct_policy(policy, V, env, discount_factor)
+    # print("corrected policy phase:", phase)
+    # print_policy(corrected_policy, grid=env.grid)
 
     return corrected_policy, V
 
@@ -497,6 +501,27 @@ def correct_policy(policy, V, env, discount_factor):
         corrected_policy[state] = best_action
 
     return corrected_policy
+
+def print_policy(policy, grid):
+
+    # Print the policy
+    action_labels = {
+        0: "↑",  # Up
+        1: "↓",  # Down
+        2: "←",  # Left
+        3: "→"  # Right
+    }
+
+    print("\nOptimal Policy:")
+    for x in range(8):
+        row = []
+        for y in range(8):
+            if grid[x][y] == "R":
+                row.append("R")  # Rock
+            else:
+                action = policy[x, y]
+                row.append(action_labels[action] if action != -1 else " ")
+        print(" ".join(row))
 
 
 

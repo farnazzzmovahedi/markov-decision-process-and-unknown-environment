@@ -1,5 +1,5 @@
 import pygame
-from environment import PygameInit, AngryBirds, value_iteration
+from environment import PygameInit, AngryBirds, value_iteration, print_policy
 
 if __name__ == "__main__":
 
@@ -15,6 +15,9 @@ if __name__ == "__main__":
 
     # Initialize variables to track the nearest pig
     nearest_pig = None
+
+    goal_policy, V = value_iteration(env, env.transition_table, phase='goal')
+
 
     # print the grid
     for row in env.grid:
@@ -70,7 +73,7 @@ if __name__ == "__main__":
                 else:
                     state = next_state
 
-            policy, V = value_iteration(env, env.transition_table, phase='goal')
+            policy = goal_policy
 
             # print("State Values (V_goal):")
             # for x in range(8):

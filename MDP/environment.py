@@ -33,6 +33,9 @@ import pygame
 import random
 import copy
 
+
+import matplotlib.pyplot as plt
+
 #######################################################
 #                DONT CHANGE THIS PART                #
 #######################################################
@@ -172,6 +175,7 @@ class AngryBirds:
         self.__agent_pos = (0, 0)
         self.reward = 0
         self.pigs_eaten = 0
+        self.queen_pigs_eaten = 0
         self.done = False
         return self.__agent_pos
 
@@ -292,8 +296,6 @@ class AngryBirds:
                 elif cell == 'P':
                     if phase == 'pigs':
                         if (row, col) == nearest_pig:
-                            # print("nearest", nearest_pig)
-                            # print("cell", cell)
                             reward_map[row][col] = 20000  # High reward for the nearest pig
                         else:
                             reward_map[row][col] = 10  # Smaller reward for other pigs
@@ -404,10 +406,15 @@ class AngryBirds:
 def value_iteration(env, transition_table, discount_factor=0.9, theta=1e-7, phase='pigs'):
     """
     Perform value iteration to compute the optimal policy and value function.
+    Returns:
+        policy (dict): The optimal policy mapping states to actions.
+        V (default dict): The value function mapping states to their values.
+        delta_history (list): List of delta values showing convergence over iterations.
     """
     V = defaultdict(float)  # Value function initialized to 0
     policy = {}  # Policy to store optimal actions
     rewards = env.reward_function(phase)  # 2D list of rewards
+    delta_history = []
 
     while True:
         delta = 0
@@ -434,18 +441,15 @@ def value_iteration(env, transition_table, discount_factor=0.9, theta=1e-7, phas
                 if action_values:
                     policy[state] = np.argmax(action_values)
 
+        delta_history.append(delta)
+
         # Stop if the values converge
         if delta < theta:
             break
 
-    # print("policy phase:", phase)
-    # print_policy(policy, grid=env.grid)
-    # After value iteration, correct the policy to avoid invalid actions and pick the best valid actions
     corrected_policy = correct_policy(policy, V, env, discount_factor)
-    # print("corrected policy phase:", phase)
-    # print_policy(corrected_policy, grid=env.grid)
 
-    return corrected_policy, V
+    return corrected_policy, V, delta_history
 
 
 def correct_policy(policy, V, env, discount_factor):
@@ -523,6 +527,35 @@ def print_policy(policy, grid):
                 row.append(action_labels[action] if action != -1 else " ")
         print(" ".join(row))
 
+
+def plot_delta_convergence(delta_history):
+    plt.figure(figsize=(10, 6))
+    plt.plot(delta_history, marker='o', linestyle='-', color='b', label='Delta')
+    plt.title('Convergence of Delta in Value Iteration', fontsize=16)
+    plt.xlabel('Iteration', fontsize=14)
+    plt.ylabel('Delta', fontsize=14)
+    plt.grid(True)
+    plt.legend(fontsize=12)
+    plt.tight_layout()
+    plt.show()
+    plt.savefig("delta_convergence.png")
+    print(f"Plot saved as '{"delta_convergence.png"}'")
+
+
+def print_state_value(V):
+    # Enhanced display of 8x8 matrix
+    print("State Values (V_goal):")
+    header = "     " + " ".join([f"{i:^10}" for i in range(8)])  # Center-aligned column headers
+    print(header)
+    print("-" * 89)  # Separator line for 8 columns plus row labels
+
+    for x in range(8):
+        row = [f"{x:2} |"]  # Row header
+        for y in range(8):
+            state = (x, y)
+            value = V.get(state, 0)  # Default to 0 if the state is not in V
+            row.append(f"{value:^10.2f}")  # Center-align values with 2 decimal places
+        print(" ".join(row))
 
 
 

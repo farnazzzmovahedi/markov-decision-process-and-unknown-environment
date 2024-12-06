@@ -1,11 +1,14 @@
 import pygame
-from environment import PygameInit, AngryBirds, value_iteration, print_policy
+
+from environment import PygameInit, AngryBirds, value_iteration, print_policy, plot_delta_convergence, print_state_value
+import matplotlib
+matplotlib.use("Agg")  # Use a backend that doesn't require Tk
 
 if __name__ == "__main__":
 
     FPS = 64
     env = AngryBirds()
-    # screen, clock = PygameInit.initialization()  # Initialize Pygame (commented out)
+    screen, clock = PygameInit.initialization()  # Initialize Pygame (commented out)
     state = env.reset()
     sum_rewards = 0
     sum_episodes_reward = 0
@@ -16,8 +19,12 @@ if __name__ == "__main__":
     # Initialize variables to track the nearest pig
     nearest_pig = None
 
-    goal_policy, V = value_iteration(env, env.transition_table, phase='goal')
+    goal_policy, V, delta_history = value_iteration(env, env.transition_table, phase='goal')
+    # Visualize the convergence of delta
+    # plot_delta_convergence(delta_history)
+    print_state_value(V)
 
+    print_policy(goal_policy, env.grid)
 
     # print the grid
     for row in env.grid:
@@ -28,30 +35,20 @@ if __name__ == "__main__":
         while running:
 
             # Comment out Pygame event handling and rendering
-            # for event in pygame.event.get():
-            #     if event.type == pygame.QUIT:
-            #         running = False
-            #         pygame.quit()
-            #         exit()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                    pygame.quit()
+                    exit()
 
-            # env.render(screen)  # Comment out rendering
+            env.render(screen)  # Comment out rendering
 
             if policy is None:
-                policy, V = value_iteration(env, env.transition_table, phase='pigs')
+                policy, V, _ = value_iteration(env, env.transition_table, phase='pigs')
 
             while env.pigs_eaten < 7:
                 if env.pigs_eaten != temp:
-                    policy, V = value_iteration(env, env.transition_table, phase='pigs')  # Recompute policy for pigs phase
-
-                    # # Uncomment if you want to see the state values for debugging
-                    # print("State Values (V_pigs):")
-                    # for x in range(8):
-                    #     row = []
-                    #     for y in range(8):
-                    #         state = (x, y)
-                    #         value = V.get(state, 0)  # Default to 0 if the state is not in V
-                    #         row.append(f"{value:8.2f}")  # Format value with 2 decimal places
-                    #     print(" ".join(row))
+                    policy, V, _ = value_iteration(env, env.transition_table, phase='pigs')  # Recompute policy for pigs phase
 
                     temp = env.pigs_eaten
 
@@ -75,15 +72,6 @@ if __name__ == "__main__":
 
             policy = goal_policy
 
-            # print("State Values (V_goal):")
-            # for x in range(8):
-            #     row = []
-            #     for y in range(8):
-            #         state = (x, y)
-            #         value = V.get(state, 0)  # Default to 0 if the state is not in V
-            #         row.append(f"{value:8.2f}")  # Format value with 2 decimal places
-            #     print(" ".join(row))
-
             # Extract action from policy
             row, col = state  # Unpack the current state
             action = policy.get((row, col), 0)  # Access policy, default to 0 (Up) if state is not in policy
@@ -102,7 +90,7 @@ if __name__ == "__main__":
             else:
                 state = next_state  # Update state to the next state
 
-            # pygame.display.flip()  # Comment out Pygame display update
-            # clock.tick(FPS)  # Comment out Pygame clock tick
+            pygame.display.flip()  # Comment out Pygame display update
+            clock.tick(FPS)  # Comment out Pygame clock tick
 
-    # pygame.quit()  # Comment out Pygame quit
+    pygame.quit()  # Comment out Pygame quit

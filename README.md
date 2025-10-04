@@ -1,1 +1,7 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/PPLIDc_U)
+> 📘 **Read the detailed documentation:**
+> 
+[➡️ **Open guidelines**](docs/AI-project-phase2-guidelines.pdf)
+
+[➡️ **Open report**](docs/AI-project-phase2-report.pdf)
+
+[➡️ **Open instructions**](docs/AI-project-phase2-instructions.pdf)

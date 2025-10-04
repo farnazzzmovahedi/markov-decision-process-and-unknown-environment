@@ -6,7 +6,7 @@ matplotlib.use("Agg")  # Use a backend that doesn't require Tk
 
 if __name__ == "__main__":
 
-    FPS = 64
+    FPS = 10
     env = AngryBirds()
     screen, clock = PygameInit.initialization()  # Initialize Pygame (commented out)
     state = env.reset()
